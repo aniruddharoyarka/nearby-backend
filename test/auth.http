@@ -1,0 +1,57 @@
+### Register Regular User
+
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+    "name": "Test User",
+    "email": "test@example.com",
+    "password": "123456"
+}
+
+### Register Organizer
+
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+    "name": "Test Organizer",
+    "email": "organizer@example.com",
+    "password": "123456",
+    "role": "organizer",
+    "organizationName": "Nearby Events",
+    "phone": "01700000000"
+}
+
+### Login
+
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "123456"
+}
+
+###
+
+### Get Profile Without Token
+
+GET http://localhost:5000/api/auth/profile
+
+### Login
+
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "123456"
+}
+
+###
+
+### Get Profile With Token
+
+GET http://localhost:5000/api/auth/profile
+Authorization: Bearer eyJhbGciOiJIzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTkzMDdhMWEyM2FkNmVjY2FiNGJjNTkiLCJyb2xlIjoidXNlciIsImlhdCI6MTc4ODAyMTM1NSwiZXhwIjoxNzg4NjI2MTU1fQ.Mjcx-FPkNYSfRKhJbyL9qHtRJQX13Ex3cQNPXYje4U8
