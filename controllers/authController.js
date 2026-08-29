@@ -2,10 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-// ==========================================
-// REGISTER USER / ORGANIZER
-// ==========================================
-
+//register organizer
 const register = async (req, res) => {
     try {
         const {
@@ -17,20 +14,14 @@ const register = async (req, res) => {
             phone,
         } = req.body;
 
-        // ==========================================
-        // Validate required fields
-        // ==========================================
-
+        //validate fields
         if (!name || !email || !password) {
             return res.status(400).json({
                 message: "Name, email and password are required.",
             });
         }
 
-        // ==========================================
-        // Clean input
-        // ==========================================
-
+        //clean input areas
         const cleanName = name.trim();
         const cleanEmail = email.toLowerCase().trim();
 
@@ -40,10 +31,7 @@ const register = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Validate email
-        // ==========================================
-
+        //validate email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         if (!emailRegex.test(cleanEmail)) {
@@ -52,20 +40,14 @@ const register = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Validate password length
-        // ==========================================
-
+        //validate password
         if (password.length < 6) {
             return res.status(400).json({
                 message: "Password must be at least 6 characters long.",
             });
         }
 
-        // ==========================================
-        // Check if email already exists
-        // ==========================================
-
+        //check existing email
         const existingUser = await User.findOne({
             email: cleanEmail,
         });
@@ -76,27 +58,13 @@ const register = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Determine user role
-        //
-        // IMPORTANT:
-        //
-        // Public registration can ONLY create:
-        // - user
-        // - organizer
-        //
-        // "admin" is NEVER accepted from req.body.
-        // ==========================================
-
+        //determine user role
         const userRole =
             role === "organizer"
                 ? "organizer"
                 : "user";
 
-        // ==========================================
-        // Organizer-specific validation
-        // ==========================================
-
+        //organizer validation
         let cleanOrganizationName = null;
         let cleanPhone = null;
 
@@ -122,26 +90,17 @@ const register = async (req, res) => {
             }
         }
 
-        // ==========================================
-        // Hash password
-        // ==========================================
-
+        //hashing password using bycrypt
         const hashedPassword = await bcrypt.hash(
             password,
             12
         );
 
-        // ==========================================
-        // Create user
-        // ==========================================
-
+        //create user
         const user = await User.create({
             name: cleanName,
             email: cleanEmail,
             password: hashedPassword,
-
-            // NEVER use:
-            // role: req.body.role
 
             role: userRole,
 
@@ -156,10 +115,7 @@ const register = async (req, res) => {
                     : null,
         });
 
-        // ==========================================
-        // Response
-        // ==========================================
-
+        //response
         return res.status(201).json({
             message: "Registration successful.",
 
@@ -186,11 +142,7 @@ const register = async (req, res) => {
     }
 };
 
-
-// ==========================================
-// LOGIN USER / ORGANIZER / ADMIN
-// ==========================================
-
+//login
 const login = async (req, res) => {
     try {
         const {
@@ -198,10 +150,7 @@ const login = async (req, res) => {
             password,
         } = req.body;
 
-        // ==========================================
-        // Validate input
-        // ==========================================
-
+        //validate input 
         if (!email || !password) {
             return res.status(400).json({
                 message:
@@ -209,17 +158,11 @@ const login = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Clean email
-        // ==========================================
-
+        //clean email
         const cleanEmail =
             email.toLowerCase().trim();
 
-        // ==========================================
-        // Find user
-        // ==========================================
-
+        //find user
         const user = await User.findOne({
             email: cleanEmail,
         });
@@ -231,10 +174,7 @@ const login = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Compare password
-        // ==========================================
-
+        //compare password
         const isPasswordCorrect =
             await bcrypt.compare(
                 password,
@@ -248,10 +188,7 @@ const login = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // Create JWT
-        // ==========================================
-
+        //create jwt
         const token = jwt.sign(
             {
                 userId: user._id,
@@ -263,10 +200,7 @@ const login = async (req, res) => {
             }
         );
 
-        // ==========================================
-        // Response
-        // ==========================================
-
+        //response
         return res.status(200).json({
             message: "Login successful.",
 
@@ -296,35 +230,21 @@ const login = async (req, res) => {
     }
 };
 
-
-// ==========================================
-// GET AUTHENTICATED USER PROFILE
-// ==========================================
-
 const getProfile = async (req, res) => {
     try {
-        // ==========================================
-        // Find user using JWT userId
-        // ==========================================
-
+        //find user jwt using userid
         const user = await User.findById(
             req.user.userId
         ).select("-password");
 
-        // ==========================================
-        // User not found
-        // ==========================================
-
+        //user not found
         if (!user) {
             return res.status(404).json({
                 message: "User not found.",
             });
         }
 
-        // ==========================================
-        // Response
-        // ==========================================
-
+        //response
         return res.status(200).json({
             user: {
                 id: user._id,
@@ -351,11 +271,6 @@ const getProfile = async (req, res) => {
         });
     }
 };
-
-
-// ==========================================
-// EXPORT
-// ==========================================
 
 module.exports = {
     register,

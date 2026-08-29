@@ -2,10 +2,7 @@ const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
     try {
-        // ==========================================
-        // Get Authorization header
-        // ==========================================
-
+        //auth header
         const authHeader = req.headers.authorization;
 
         if (!authHeader) {
@@ -14,10 +11,7 @@ const authMiddleware = (req, res, next) => {
             });
         }
 
-        // ==========================================
-        // Check Bearer token format
-        // ==========================================
-
+        //brearer token format
         const parts = authHeader.split(" ");
 
         if (
@@ -31,24 +25,13 @@ const authMiddleware = (req, res, next) => {
 
         const token = parts[1];
 
-        // ==========================================
-        // Verify JWT
-        // ==========================================
-
+        //verify jwt
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET
         );
 
-        // ==========================================
-        // Attach user information to request
-        // ==========================================
-
         req.user = decoded;
-
-        // ==========================================
-        // Continue to protected route
-        // ==========================================
 
         next();
 

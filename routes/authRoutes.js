@@ -10,18 +10,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// ==========================================
-// Public authentication routes
-// ==========================================
-
+//public routes
 router.post("/register", register);
 
 router.post("/login", login);
 
-// ==========================================
-// Protected authentication routes
-// ==========================================
-
+//protected routes
 router.get(
     "/profile",
     authMiddleware,
