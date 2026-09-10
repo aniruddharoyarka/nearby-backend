@@ -157,6 +157,7 @@ const login = async (req, res) => {
         const {
             email,
             password,
+            role,
         } = req.body;
 
         //validate input 
@@ -195,6 +196,23 @@ const login = async (req, res) => {
                 message:
                     "Invalid email or password.",
             });
+        }
+
+        //Enforce that the login form's "organizer" toggle actually matches
+        //the account's real role BEFORE issuing any session cookie.
+        //Without this, a mismatched login would still succeed and set the
+        //cookie, letting the toggle be bypassed by navigating manually.
+        if (role) {
+            const isOrganizerRequest = role === "organizer";
+            const isOrganizerAccount = user.role === "organizer";
+
+            if (isOrganizerRequest !== isOrganizerAccount) {
+                return res.status(403).json({
+                    message: isOrganizerRequest
+                        ? "This account is not registered as an organizer."
+                        : "Please use the organizer login option for this account.",
+                });
+            }
         }
 
         //create jwt
