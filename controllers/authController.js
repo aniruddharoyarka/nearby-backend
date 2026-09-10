@@ -198,21 +198,40 @@ const login = async (req, res) => {
             });
         }
 
-        //Enforce that the login form's "organizer" toggle actually matches
-        //the account's real role BEFORE issuing any session cookie.
+        //Enforce that the login page's role selection (the organizer
+        //toggle, or the dedicated admin login page) actually matches the
+        //account's real role BEFORE issuing any session cookie.
         //Without this, a mismatched login would still succeed and set the
-        //cookie, letting the toggle be bypassed by navigating manually.
-        if (role) {
-            const isOrganizerRequest = role === "organizer";
-            const isOrganizerAccount = user.role === "organizer";
-
-            if (isOrganizerRequest !== isOrganizerAccount) {
-                return res.status(403).json({
-                    message: isOrganizerRequest
-                        ? "This account is not registered as an organizer."
-                        : "Please use the organizer login option for this account.",
+        //cookie, letting the login surface be bypassed by navigating
+        //manually. This is a strict equality check across all three roles
+        //so a plain user/organizer account can never slip through on the
+        //admin login page just because it "isn't an organizer".
+        if (role && user.role !== role) {
+            //Someone tried the hidden admin login with a non-admin
+            //account. Reply exactly like a wrong password would, so this
+            //endpoint can't be used to fingerprint who is (or isn't) an
+            //admin.
+            if (role === "admin") {
+                return res.status(401).json({
+                    message: "Invalid email or password.",
                 });
             }
+
+            if (role === "organizer") {
+                return res.status(403).json({
+                    message:
+                        "This account is not registered as an organizer.",
+                });
+            }
+
+            //role === "user" (the toggle's default) but the account is
+            //actually an organizer or admin.
+            return res.status(403).json({
+                message:
+                    user.role === "organizer"
+                        ? "Please use the organizer login option for this account."
+                        : "This account can't sign in from here.",
+            });
         }
 
         //create jwt
