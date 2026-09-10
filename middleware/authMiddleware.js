@@ -2,28 +2,14 @@ const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
     try {
-        //auth header
-        const authHeader = req.headers.authorization;
+        //read jwt from httpOnly cookie
+        const token = req.cookies?.token;
 
-        if (!authHeader) {
+        if (!token) {
             return res.status(401).json({
                 message: "Authentication required.",
             });
         }
-
-        //brearer token format
-        const parts = authHeader.split(" ");
-
-        if (
-            parts.length !== 2 ||
-            parts[0] !== "Bearer"
-        ) {
-            return res.status(401).json({
-                message: "Invalid authorization format.",
-            });
-        }
-
-        const token = parts[1];
 
         //verify jwt
         const decoded = jwt.verify(
@@ -37,6 +23,13 @@ const authMiddleware = (req, res, next) => {
 
     } catch (error) {
         console.error("Authentication error:", error);
+
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        });
 
         return res.status(401).json({
             message: "Invalid or expired token.",

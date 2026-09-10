@@ -2,6 +2,15 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days, matches JWT expiresIn
+
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
+};
+
 //register organizer
 const register = async (req, res) => {
     try {
@@ -200,11 +209,15 @@ const login = async (req, res) => {
             }
         );
 
+        //set jwt as httpOnly cookie instead of sending it in the response body
+        res.cookie("token", token, {
+            ...cookieOptions,
+            maxAge: TOKEN_MAX_AGE,
+        });
+
         //response
         return res.status(200).json({
             message: "Login successful.",
-
-            token,
 
             user: {
                 id: user._id,
@@ -272,8 +285,18 @@ const getProfile = async (req, res) => {
     }
 };
 
+//logout
+const logout = (req, res) => {
+    res.clearCookie("token", cookieOptions);
+
+    return res.status(200).json({
+        message: "Logout successful.",
+    });
+};
+
 module.exports = {
     register,
     login,
     getProfile,
+    logout,
 };
