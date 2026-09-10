@@ -38,6 +38,72 @@ const userSchema = new mongoose.Schema(
             trim: true,
             default: null,
         },
+
+        //editable profile fields (text-only for now — no image upload yet)
+        username: {
+            type: String,
+            trim: true,
+            lowercase: true,
+            unique: true,
+            sparse: true,
+            default: null,
+        },
+
+        about: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        website: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        address: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        area: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        city: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        division: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        facebook: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        instagram: {
+            type: String,
+            trim: true,
+            default: null,
+        },
+
+        //kept as a string on purpose (this is text-field data, not a
+        //number we do arithmetic on)
+        establishedYear: {
+            type: String,
+            trim: true,
+            default: null,
+        },
     },
     {
         timestamps: true,
