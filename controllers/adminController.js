@@ -1,9 +1,10 @@
 const User = require("../models/User");
 
 // Only the fields the admin panel currently displays for a regular
-// user (UsersTable / UserDetailsModal). "events" isn't a real number
-// yet — there's no Event collection to count against — so it's 0 for
-// now rather than faked to look real.
+// user (UsersTable / UserDetailsModal). There's deliberately no
+// "events" count here — there's no Event/attendance model yet to
+// compute a real number from, and showing a hardcoded 0 for every
+// user would be misleading placeholder data.
 const serializeAdminUser = (user) => ({
     id: user._id,
     name: user.name,
@@ -11,18 +12,16 @@ const serializeAdminUser = (user) => ({
     phone: user.phone || "Not provided",
     joined: user.createdAt,
     status: user.status,
-    events: 0,
 });
 
-// Same idea for the Organizers table/modal.
+// Same idea for the Organizers table/modal — no events/offers counts
+// until there's a real Event/Offer collection to derive them from.
 const serializeAdminOrganizer = (organizer) => ({
     id: organizer._id,
     name: organizer.organizationName || organizer.name,
     owner: organizer.name,
     email: organizer.email,
     phone: organizer.phone || "Not provided",
-    events: 0,
-    offers: 0,
     status: organizer.status,
 });
 

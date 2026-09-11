@@ -175,6 +175,18 @@ const login = async (req, res) => {
       });
     }
 
+    //Block suspended accounts from logging in at all. Suspending is
+    //meant to cut off access immediately — without this check, an
+    //admin toggling "Suspended" only changed what the admin panel
+    //displayed; the account could still authenticate normally and
+    //nothing was actually enforced.
+    if (user.status === "Suspended") {
+      return res.status(403).json({
+        message:
+          "This account has been suspended. Contact support if you think this is a mistake.",
+      });
+    }
+
     //Enforce that the login page's role selection (the organizer
     //toggle, or the dedicated admin login page) actually matches the
     //account's real role BEFORE issuing any session cookie.
@@ -284,7 +296,6 @@ const updateProfile = async (req, res) => {
 
     const {
       name,
-      email,
       username,
       phone,
       organizationName,
@@ -312,32 +323,11 @@ const updateProfile = async (req, res) => {
       user.name = cleanName;
     }
 
-    //email — same format check as register, plus a uniqueness
-    //re-check since it's changing to a new value
-    if (email !== undefined) {
-      const cleanEmail = email.toLowerCase().trim();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (!emailRegex.test(cleanEmail)) {
-        return res.status(400).json({
-          message: "Please enter a valid email address.",
-        });
-      }
-
-      if (cleanEmail !== user.email) {
-        const existingEmail = await User.findOne({
-          email: cleanEmail,
-        });
-
-        if (existingEmail) {
-          return res.status(409).json({
-            message: "An account with this email already exists.",
-          });
-        }
-
-        user.email = cleanEmail;
-      }
-    }
+    //Email is deliberately NOT editable here — it's the account's
+    //permanent identifier from registration. Even if a client sends
+    //an `email` field, it's silently ignored rather than applied, so
+    //this can't be bypassed by hitting the API directly instead of
+    //going through the UI.
 
     //username — optional, but must stay unique across accounts if set
     if (username !== undefined) {
@@ -396,6 +386,70 @@ const updateProfile = async (req, res) => {
   }
 };
 
+//change the logged-in user's own password. Kept as its own endpoint
+//(rather than folded into updateProfile) since it has different
+//rules: it requires re-proving identity with the current password
+//before anything changes, which the plain text-field updates above
+//don't need.
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Current password and new password are required.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const isCurrentPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isCurrentPasswordCorrect) {
+      return res.status(401).json({
+        message: "Current password is incorrect.",
+      });
+    }
+
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+
+    if (isSameAsCurrent) {
+      return res.status(400).json({
+        message: "New password must be different from the current password.",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password updated successfully.",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while updating your password.",
+    });
+  }
+};
+
 //logout
 const logout = (req, res) => {
   res.clearCookie("token", cookieOptions);
@@ -410,6 +464,7 @@ module.exports = {
   login,
   getProfile,
   updateProfile,
+  changePassword,
   logout,
   serializeUser,
 };

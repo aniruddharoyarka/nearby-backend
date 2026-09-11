@@ -5,6 +5,7 @@ const {
     login,
     getProfile,
     updateProfile,
+    changePassword,
     logout,
 } = require("../controllers/authController");
 
@@ -28,6 +29,12 @@ router.put(
     "/profile",
     authMiddleware,
     updateProfile
+);
+
+router.put(
+    "/password",
+    authMiddleware,
+    changePassword
 );
 
 router.post(
