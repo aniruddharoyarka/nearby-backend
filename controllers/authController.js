@@ -19,6 +19,7 @@ const serializeUser = (user) => ({
   name: user.name,
   email: user.email,
   role: user.role,
+  status: user.status,
   username: user.username,
   organizationName: user.organizationName,
   phone: user.phone,
@@ -410,4 +411,5 @@ module.exports = {
   getProfile,
   updateProfile,
   logout,
+  serializeUser,
 };
