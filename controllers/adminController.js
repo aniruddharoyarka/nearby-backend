@@ -22,6 +22,7 @@ const serializeAdminOrganizer = (organizer) => ({
     id: organizer._id,
     name: organizer.organizationName || organizer.name,
     owner: organizer.name,
+    joined: organizer.createdAt,
     email: organizer.email,
     phone: organizer.phone || "Not provided",
     status: organizer.status,

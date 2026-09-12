@@ -98,7 +98,7 @@ async function main() {
             role: "admin", // hardcoded — not derived from any input
         });
 
-        console.log("✅ Admin account created:");
+        console.log("Admin account created:");
         console.log(`   Name:  ${admin.name}`);
         console.log(`   Email: ${admin.email}`);
         console.log(`   Role:  ${admin.role}`);

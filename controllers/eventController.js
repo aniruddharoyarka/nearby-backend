@@ -1,12 +1,14 @@
+const { cleanAddress, formatAddress } = require("../utils/listingAddress");
 const Event = require("../models/Event");
 const mongoose = require("mongoose");
 
-const organizerFields = "name organizationName";
+const organizerFields = "name organizationName profilePicture";
 const serializeListedEvent = (event) => ({
     ...serializeEvent(event),
     organizer: event.organizer ? {
         id: event.organizer._id,
         name: event.organizer.organizationName || event.organizer.name,
+        profilePicture: { url: event.organizer.profilePicture?.url || null },
     } : null,
 });
 
@@ -36,6 +38,8 @@ const getEvent = async (req, res) => {
 
 const updateEventStatus = async (req, res) => {
     const { status } = req.body;
+    const rejectionReason = typeof req.body.rejectionReason === "string" ? req.body.rejectionReason.trim() : "";
+    if (status === "Rejected" && !rejectionReason) return res.status(400).json({ message: "A rejection reason is required." });
     if (!["Pending", "Approved", "Rejected"].includes(status)) {
         return res.status(400).json({ message: "Invalid event status." });
     }
@@ -43,7 +47,7 @@ const updateEventStatus = async (req, res) => {
         return res.status(404).json({ message: "Event not found." });
     }
     try {
-        const event = await Event.findByIdAndUpdate(req.params.id, { status }, {
+        const event = await Event.findOneAndUpdate({ _id: req.params.id, status: { $ne: "Rejected" } }, { status, rejectionReason: status === "Rejected" ? rejectionReason : null }, {
             new: true, runValidators: true,
         }).populate("organizer", organizerFields);
         if (!event) return res.status(404).json({ message: "Event not found." });
@@ -63,6 +67,7 @@ const serializeEvent = (event) => ({
     time: event.time,
     duration: event.duration,
     location: event.location,
+    address: event.address,
     locationLink: event.locationLink,
     performers: event.performers,
     tickets: event.tickets.map((ticket) => ({
@@ -73,6 +78,7 @@ const serializeEvent = (event) => ({
     })),
     bannerImage: event.bannerImage,
     status: event.status,
+    rejectionReason: event.rejectionReason,
     organizer: event.organizer,
     createdAt: event.createdAt,
 });
@@ -101,6 +107,9 @@ const createEvent = async (req, res) => {
             typeof bannerImage?.publicId !== "string" || !bannerImage.publicId.trim()) {
             return res.status(400).json({ message: "An uploaded banner image is required." });
         }
+
+        let address;
+        try { address = cleanAddress(req.body.address); } catch (error) { return res.status(400).json({ message: error.message }); }
 
         //required fields
         if (!title?.trim()) {
@@ -182,7 +191,8 @@ const createEvent = async (req, res) => {
             date: date.trim(),
             time: time.trim(),
             duration: duration?.trim() || null,
-            location: location.trim(),
+            location: address ? formatAddress(address) : location.trim(),
+            address,
             locationLink: locationLink?.trim() || null,
             performers: cleanPerformers,
             tickets: cleanTickets,

@@ -15,7 +15,7 @@ test("new offers cannot forge organizer or approval",async(t)=>{
  const res=response();await c.save()({user:{userId:"owner"},body:{...valid,status:"Approved",organizer:"intruder"}},res);assert.equal(res.code,201);
 });
 test("editing is owner-scoped and always requires reapproval",async(t)=>{
- t.mock.method(Offer,"findOneAndUpdate",async(filter,data)=>{assert.deepEqual(filter,{_id:id,organizer:"owner"});assert.equal(data.status,"Pending");return null;});
+ t.mock.method(Offer,"findOneAndUpdate",async(filter,data)=>{assert.deepEqual(filter,{_id:id,organizer:"owner",status:{$ne:"Rejected"}});assert.equal(data.status,"Pending");return null;});
  const res=response();await c.save(true)({params:{id},user:{userId:"owner"},body:valid},res);assert.equal(res.code,404);
 });
 test("public lists only approved unexpired offers; mine ignores supplied owner",async(t)=>{
@@ -33,6 +33,6 @@ test("deletion is scoped to authenticated owner",async(t)=>{
 });
 test("moderation validates status and persists approved status",async(t)=>{
  let res=response();await c.moderate({params:{id},body:{status:"Active"}},res);assert.equal(res.code,400);
- t.mock.method(Offer,"findByIdAndUpdate",(offerId,data)=>{assert.equal(offerId,id);assert.equal(data.status,"Approved");return {populate:async()=>({...valid,_id:id,status:data.status})};});
+ t.mock.method(Offer,"findOneAndUpdate",(offerId,data)=>{assert.deepEqual(offerId,{_id:id,status:{$ne:"Rejected"}});assert.equal(data.status,"Approved");return {populate:async()=>({...valid,_id:id,status:data.status})};});
  res=response();await c.moderate({params:{id},body:{status:"Approved"}},res);assert.equal(res.body.offer.status,"Approved");
 });

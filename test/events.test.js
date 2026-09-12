@@ -61,9 +61,9 @@ test("public detail query excludes pending and rejected events", async (t) => {
 });
 
 test("moderation persists status and returns saved event", async (t) => {
-  t.mock.method(Event, "findByIdAndUpdate", (actualId, update, options) => {
-    assert.equal(actualId, id);
-    assert.deepEqual(update, { status: "Approved" });
+  t.mock.method(Event, "findOneAndUpdate", (actualId, update, options) => {
+    assert.deepEqual(actualId, { _id: id, status: { $ne: "Rejected" } });
+    assert.deepEqual(update, { status: "Approved", rejectionReason: null });
     assert.equal(options.runValidators, true);
     return { populate: async () => event };
   });

@@ -28,6 +28,8 @@ const ticketSchema = new mongoose.Schema(
 
 const eventSchema = new mongoose.Schema(
     {
+        rejectionReason: { type: String, default: null },
+address: { venue: String, area: String, city: String, division: String, country: String },
         title: {
             type: String,
             required: true,

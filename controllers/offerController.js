@@ -1,14 +1,15 @@
+const { cleanAddress, formatAddress } = require("../utils/listingAddress");
 const mongoose = require("mongoose");
 const Offer = require("../models/Offer");
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" });
 const publicFilter = () => ({ status: "Approved", validUntil: { $gte: today() } });
 const populate = "name organizationName profilePicture";
 const serialize = (o) => ({
- id: o._id, title: o.title, category: o.category, location: o.location,
+ id: o._id, title: o.title, category: o.category, location: o.location, address: o.address,
  date: o.date, time: o.time, validUntil: o.validUntil, description: o.description, redemption: o.redemption,
  originalPrice: o.originalPrice, discountPercent: o.discountPercent,
  discount: o.discountPercent + "% off", offerPrice: Math.round(o.originalPrice * (100 - o.discountPercent)) / 100,
- bannerImage: o.bannerImage, image: o.bannerImage.url, type: "offer", status: o.status,
+ bannerImage: o.bannerImage, image: o.bannerImage.url, type: "offer", status: o.status, rejectionReason: o.rejectionReason,
  organizer: o.organizer?.name ? { id: o.organizer._id, name: o.organizer.organizationName || o.organizer.name, profilePicture: { url: o.organizer.profilePicture?.url } } : null,
  createdAt: o.createdAt,
 });
@@ -31,6 +32,8 @@ const validate = (body) => {
  if (data.discountPercent > 100) throw new Error("Discount cannot exceed 100%.");
  if (typeof body.bannerImage?.url !== "string" || !/^https:\/\//.test(body.bannerImage.url) || typeof body.bannerImage.publicId !== "string" || !body.bannerImage.publicId.trim()) throw new Error("Upload an offer banner.");
  data.bannerImage = { url: body.bannerImage.url, publicId: body.bannerImage.publicId.trim() };
+ data.address=cleanAddress(body.address);
+ if(data.address)data.location=formatAddress(data.address);
  return data;
 };
 const list = (scope) => async (req,res) => {
@@ -53,7 +56,7 @@ const save = (edit = false) => async (req,res) => {
  let data;
  try { data=validate(req.body); } catch(error) { return res.status(400).json({message:error.message}); }
  try {
-  const offer = edit ? await Offer.findOneAndUpdate({_id:req.params.id,organizer:req.user.userId}, {...data,status:"Pending"}, {new:true,runValidators:true}) : await Offer.create({...data,organizer:req.user.userId,status:"Pending"});
+  const offer = edit ? await Offer.findOneAndUpdate({_id:req.params.id,organizer:req.user.userId,status:{$ne:"Rejected"}}, {...data,status:"Pending"}, {new:true,runValidators:true}) : await Offer.create({...data,organizer:req.user.userId,status:"Pending"});
   if (!offer) return res.status(404).json({message:"Offer not found."});
   res.status(edit ? 200 : 201).json({offer:serialize(offer),message:"Offer submitted for review."});
  } catch { res.status(500).json({message:"Failed to save offer."}); }
@@ -67,10 +70,12 @@ const remove = async (req,res) => {
  } catch { res.status(500).json({message:"Failed to delete offer."}); }
 };
 const moderate = async (req,res) => {
+ const rejectionReason=typeof req.body.rejectionReason === "string" ? req.body.rejectionReason.trim() : "";
+ if(req.body.status === "Rejected" && !rejectionReason) return res.status(400).json({message:"A rejection reason is required."});
  if (!mongoose.isObjectIdOrHexString(req.params.id)) return res.status(404).json({message:"Offer not found."});
  if (!["Pending","Approved","Rejected"].includes(req.body.status)) return res.status(400).json({message:"Invalid status."});
  try {
-  const offer=await Offer.findByIdAndUpdate(req.params.id,{status:req.body.status},{new:true,runValidators:true}).populate("organizer",populate);
+  const offer=await Offer.findOneAndUpdate({_id:req.params.id,status:{$ne:"Rejected"}},{status:req.body.status,rejectionReason:req.body.status === "Rejected" ? rejectionReason : null},{new:true,runValidators:true}).populate("organizer",populate);
   if (!offer) return res.status(404).json({message:"Offer not found."});
   res.json({offer:serialize(offer)});
  } catch { res.status(500).json({message:"Failed to update status."}); }

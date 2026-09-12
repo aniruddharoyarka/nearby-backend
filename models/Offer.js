@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const requiredText = { type: String, required: true, trim: true };
 const schema = new mongoose.Schema({
+ rejectionReason: { type: String, default: null },
+address: { venue: String, area: String, city: String, division: String, country: String },
  title: requiredText, category: requiredText, location: requiredText,
  date: requiredText, time: requiredText, validUntil: requiredText,
  description: requiredText, redemption: requiredText,
