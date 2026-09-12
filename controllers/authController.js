@@ -1,6 +1,8 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const cloudinary = require("../config/cloudinary");
+const deleteFiles = require("../utils/deleteFiles");
 
 // ==========================================
 // REGISTER USER / ORGANIZER
@@ -280,6 +282,7 @@ const login = async (req, res) => {
                 organizationName:
                     user.organizationName,
                 phone: user.phone,
+                profilePicture: user.profilePicture,
             },
         });
 
@@ -334,6 +337,7 @@ const getProfile = async (req, res) => {
                 organizationName:
                     user.organizationName,
                 phone: user.phone,
+                profilePicture: user.profilePicture,
                 createdAt:
                     user.createdAt,
             },
@@ -354,6 +358,126 @@ const getProfile = async (req, res) => {
 
 
 // ==========================================
+// UPLOAD / UPDATE PROFILE PICTURE
+// ==========================================
+
+const uploadProfilePicture = async (req, res) => {
+    try {
+        // ==========================================
+        // Validate file presence
+        // ==========================================
+
+        if (!req.file) {
+            return res.status(400).json({
+                message: "Profile picture image is required.",
+            });
+        }
+
+        const user = await User.findById(req.user.userId);
+
+        if (!user) {
+            deleteFiles([req.file.path]);
+
+            return res.status(404).json({
+                message: "User not found.",
+            });
+        }
+
+        // ==========================================
+        // Remove old picture from Cloudinary, if any
+        // ==========================================
+
+        if (user.profilePicture?.publicId) {
+            await cloudinary.uploader.destroy(
+                user.profilePicture.publicId
+            );
+        }
+
+        // ==========================================
+        // Upload new picture
+        // ==========================================
+
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "nearby/profile_pictures",
+        });
+
+        user.profilePicture = {
+            url: result.secure_url,
+            publicId: result.public_id,
+        };
+
+        await user.save();
+
+        return res.status(200).json({
+            message: "Profile picture updated.",
+            profilePicture: user.profilePicture,
+        });
+
+    } catch (error) {
+        console.error(
+            "Upload profile picture error:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Something went wrong while uploading the profile picture.",
+        });
+    } finally {
+        if (req.file) {
+            deleteFiles([req.file.path]);
+        }
+    }
+};
+
+
+// ==========================================
+// DELETE PROFILE PICTURE
+// ==========================================
+
+const deleteProfilePicture = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId);
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found.",
+            });
+        }
+
+        if (!user.profilePicture?.publicId) {
+            return res.status(400).json({
+                message: "No profile picture to delete.",
+            });
+        }
+
+        await cloudinary.uploader.destroy(
+            user.profilePicture.publicId
+        );
+
+        user.profilePicture = { url: null, publicId: null };
+
+        await user.save();
+
+        return res.status(200).json({
+            message: "Profile picture removed.",
+        });
+
+    } catch (error) {
+        console.error(
+            "Delete profile picture error:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Something went wrong while deleting the profile picture.",
+        });
+    }
+};
+
+
+// ==========================================
 // EXPORT
 // ==========================================
 
@@ -361,4 +485,6 @@ module.exports = {
     register,
     login,
     getProfile,
+    uploadProfilePicture,
+    deleteProfilePicture,
 };

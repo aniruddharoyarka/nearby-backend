@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
             trim: true,
             default: null,
         },
+
+        profilePicture: {
+            url: { type: String, default: null },
+            publicId: { type: String, default: null },
+        },
     },
     {
         timestamps: true,

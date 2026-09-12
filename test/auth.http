@@ -55,3 +55,27 @@ Content-Type: application/json
 
 GET http://localhost:5000/api/auth/profile
 Authorization: Bearer eyJhbGciOiJIzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTkzMDdhMWEyM2FkNmVjY2FiNGJjNTkiLCJyb2xlIjoidXNlciIsImlhdCI6MTc4ODAyMTM1NSwiZXhwIjoxNzg4NjI2MTU1fQ.Mjcx-FPkNYSfRKhJbyL9qHtRJQX13Ex3cQNPXYje4U8
+
+###
+
+### Upload / Update Profile Picture
+# Replace the token below with a fresh one from /login,
+# and select-image the file in your REST client.
+
+POST http://localhost:5000/api/auth/profile-picture
+Authorization: Bearer PASTE_TOKEN_HERE
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="profilePicture"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./avatar.jpg
+--WebAppBoundary--
+
+###
+
+### Delete Profile Picture
+
+DELETE http://localhost:5000/api/auth/profile-picture
+Authorization: Bearer PASTE_TOKEN_HERE
