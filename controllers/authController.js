@@ -4,202 +4,150 @@ const User = require("../models/User");
 const cloudinary = require("../config/cloudinary");
 const deleteFiles = require("../utils/deleteFiles");
 
-// ==========================================
-// REGISTER USER / ORGANIZER
-// ==========================================
+const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days, matches JWT expiresIn
 
-const register = async (req, res) => {
-    try {
-        const {
-            name,
-            email,
-            password,
-            role,
-            organizationName,
-            phone,
-        } = req.body;
-
-        // ==========================================
-        // Validate required fields
-        // ==========================================
-
-        if (!name || !email || !password) {
-            return res.status(400).json({
-                message: "Name, email and password are required.",
-            });
-        }
-
-        // ==========================================
-        // Clean input
-        // ==========================================
-
-        const cleanName = name.trim();
-        const cleanEmail = email.toLowerCase().trim();
-
-        if (!cleanName) {
-            return res.status(400).json({
-                message: "Name cannot be empty.",
-            });
-        }
-
-        // ==========================================
-        // Validate email
-        // ==========================================
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-        if (!emailRegex.test(cleanEmail)) {
-            return res.status(400).json({
-                message: "Please enter a valid email address.",
-            });
-        }
-
-        // ==========================================
-        // Validate password length
-        // ==========================================
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                message: "Password must be at least 6 characters long.",
-            });
-        }
-
-        // ==========================================
-        // Check if email already exists
-        // ==========================================
-
-        const existingUser = await User.findOne({
-            email: cleanEmail,
-        });
-
-        if (existingUser) {
-            return res.status(409).json({
-                message: "An account with this email already exists.",
-            });
-        }
-
-        // ==========================================
-        // Determine user role
-        //
-        // IMPORTANT:
-        //
-        // Public registration can ONLY create:
-        // - user
-        // - organizer
-        //
-        // "admin" is NEVER accepted from req.body.
-        // ==========================================
-
-        const userRole =
-            role === "organizer"
-                ? "organizer"
-                : "user";
-
-        // ==========================================
-        // Organizer-specific validation
-        // ==========================================
-
-        let cleanOrganizationName = null;
-        let cleanPhone = null;
-
-        if (userRole === "organizer") {
-            cleanOrganizationName =
-                organizationName?.trim() || null;
-
-            cleanPhone =
-                phone?.trim() || null;
-
-            if (!cleanOrganizationName) {
-                return res.status(400).json({
-                    message:
-                        "Organization or business name is required for organizers.",
-                });
-            }
-
-            if (!cleanPhone) {
-                return res.status(400).json({
-                    message:
-                        "Phone number is required for organizers.",
-                });
-            }
-        }
-
-        // ==========================================
-        // Hash password
-        // ==========================================
-
-        const hashedPassword = await bcrypt.hash(
-            password,
-            12
-        );
-
-        // ==========================================
-        // Create user
-        // ==========================================
-
-        const user = await User.create({
-            name: cleanName,
-            email: cleanEmail,
-            password: hashedPassword,
-
-            // NEVER use:
-            // role: req.body.role
-
-            role: userRole,
-
-            organizationName:
-                userRole === "organizer"
-                    ? cleanOrganizationName
-                    : null,
-
-            phone:
-                userRole === "organizer"
-                    ? cleanPhone
-                    : null,
-        });
-
-        // ==========================================
-        // Response
-        // ==========================================
-
-        return res.status(201).json({
-            message: "Registration successful.",
-
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                organizationName: user.organizationName,
-                phone: user.phone,
-            },
-        });
-
-    } catch (error) {
-        console.error(
-            "Registration error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Something went wrong while registering.",
-        });
-    }
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  path: "/",
 };
 
+//single source of truth for the safe, client-facing shape of a user
+//document — used by register, login, getProfile and updateProfile so
+//they can never drift out of sync with each other.
+const serializeUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  status: user.status,
+  username: user.username,
+  organizationName: user.organizationName,
+  phone: user.phone,
+  about: user.about,
+  website: user.website,
+  address: user.address,
+  area: user.area,
+  city: user.city,
+  division: user.division,
+  facebook: user.facebook,
+  instagram: user.instagram,
+  establishedYear: user.establishedYear,
+  createdAt: user.createdAt,
+});
 
-// ==========================================
-// LOGIN USER / ORGANIZER / ADMIN
-// ==========================================
+//register organizer
+const register = async (req, res) => {
+  try {
+    const { name, email, password, role, organizationName, phone } = req.body;
 
+    //validate fields
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email and password are required.",
+      });
+    }
+
+    //clean input areas
+    const cleanName = name.trim();
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (!cleanName) {
+      return res.status(400).json({
+        message: "Name cannot be empty.",
+      });
+    }
+
+    //validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    //validate password
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    //check existing email
+    const existingUser = await User.findOne({
+      email: cleanEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    //determine user role
+    const userRole = role === "organizer" ? "organizer" : "user";
+
+    //organizer validation
+    let cleanOrganizationName = null;
+    let cleanPhone = null;
+
+    if (userRole === "organizer") {
+      cleanOrganizationName = organizationName?.trim() || null;
+
+      cleanPhone = phone?.trim() || null;
+
+      if (!cleanOrganizationName) {
+        return res.status(400).json({
+          message: "Organization or business name is required for organizers.",
+        });
+      }
+
+      if (!cleanPhone) {
+        return res.status(400).json({
+          message: "Phone number is required for organizers.",
+        });
+      }
+    }
+
+    //hashing password using bycrypt
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    //create user
+    const user = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password: hashedPassword,
+
+      role: userRole,
+
+      organizationName: userRole === "organizer" ? cleanOrganizationName : null,
+
+      phone: userRole === "organizer" ? cleanPhone : null,
+    });
+
+    //response
+    return res.status(201).json({
+      message: "Registration successful.",
+
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while registering.",
+    });
+  }
+};
+
+//login
 const login = async (req, res) => {
-    try {
-        const {
-            email,
-            password,
-        } = req.body;
+  try {
+    const { email, password, role } = req.body;
 
+<<<<<<< HEAD
         // ==========================================
         // Validate input
         // ==========================================
@@ -296,34 +244,210 @@ const login = async (req, res) => {
             message:
                 "Something went wrong while logging in.",
         });
+=======
+    //validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required.",
+      });
+>>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
     }
+
+    //clean email
+    const cleanEmail = email.toLowerCase().trim();
+
+    //find user
+    const user = await User.findOne({
+      email: cleanEmail,
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    //compare password
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    //Block suspended accounts from logging in at all. Suspending is
+    //meant to cut off access immediately — without this check, an
+    //admin toggling "Suspended" only changed what the admin panel
+    //displayed; the account could still authenticate normally and
+    //nothing was actually enforced.
+    if (user.status === "Suspended") {
+      return res.status(403).json({
+        message:
+          "This account has been suspended. Contact support if you think this is a mistake.",
+      });
+    }
+
+    //Enforce that the login page's role selection (the organizer
+    //toggle, or the dedicated admin login page) actually matches the
+    //account's real role BEFORE issuing any session cookie.
+    //Without this, a mismatched login would still succeed and set the
+    //cookie, letting the login surface be bypassed by navigating
+    //manually. This is a strict equality check across all three roles
+    //so a plain user/organizer account can never slip through on the
+    //admin login page just because it "isn't an organizer".
+    if (role && user.role !== role) {
+      //Someone tried the hidden admin login with a non-admin
+      //account. Reply exactly like a wrong password would, so this
+      //endpoint can't be used to fingerprint who is (or isn't) an
+      //admin.
+      if (role === "admin") {
+        return res.status(401).json({
+          message: "Invalid email or password.",
+        });
+      }
+
+      if (role === "organizer") {
+        return res.status(403).json({
+          message: "This account is not registered as an organizer.",
+        });
+      }
+
+      //role === "user" (the toggle's default) but the account is
+      //actually an organizer or admin.
+      return res.status(403).json({
+        message:
+          user.role === "organizer"
+            ? "Please use the organizer login option for this account."
+            : "This account can't sign in from here.",
+      });
+    }
+
+    //create jwt
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    //set jwt as httpOnly cookie instead of sending it in the response body
+    res.cookie("token", token, {
+      ...cookieOptions,
+      maxAge: TOKEN_MAX_AGE,
+    });
+
+    //response
+    return res.status(200).json({
+      message: "Login successful.",
+
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while logging in.",
+    });
+  }
 };
 
-
-// ==========================================
-// GET AUTHENTICATED USER PROFILE
-// ==========================================
-
 const getProfile = async (req, res) => {
-    try {
-        // ==========================================
-        // Find user using JWT userId
-        // ==========================================
+  try {
+    //find user jwt using userid
+    const user = await User.findById(req.user.userId).select("-password");
 
-        const user = await User.findById(
-            req.user.userId
-        ).select("-password");
+    //user not found
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
 
-        // ==========================================
-        // User not found
-        // ==========================================
+    //response
+    return res.status(200).json({
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
 
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found.",
-            });
+    return res.status(500).json({
+      message: "Something went wrong while getting profile.",
+    });
+  }
+};
+
+//update the logged-in user's own profile (text fields only for now —
+//no image upload yet). Follows the same shape as the reference app's
+//findByIdAndUpdate pattern, but scoped to req.user.userId instead of a
+//URL :id, since this endpoint can only ever edit your own account.
+const updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const {
+      name,
+      username,
+      phone,
+      organizationName,
+      about,
+      website,
+      address,
+      area,
+      city,
+      division,
+      facebook,
+      instagram,
+      establishedYear,
+    } = req.body;
+
+    //name
+    if (name !== undefined) {
+      const cleanName = name.trim();
+
+      if (!cleanName) {
+        return res.status(400).json({
+          message: "Name cannot be empty.",
+        });
+      }
+
+      user.name = cleanName;
+    }
+
+    //Email is deliberately NOT editable here — it's the account's
+    //permanent identifier from registration. Even if a client sends
+    //an `email` field, it's silently ignored rather than applied, so
+    //this can't be bypassed by hitting the API directly instead of
+    //going through the UI.
+
+    //username — optional, but must stay unique across accounts if set
+    if (username !== undefined) {
+      const cleanUsername = username.trim().toLowerCase();
+
+      if (!cleanUsername) {
+        user.username = null;
+      } else if (cleanUsername !== user.username) {
+        const existingUsername = await User.findOne({
+          username: cleanUsername,
+        });
+
+        if (existingUsername) {
+          return res.status(409).json({
+            message: "This username is already taken.",
+          });
         }
 
+<<<<<<< HEAD
         // ==========================================
         // Response
         // ==========================================
@@ -353,10 +477,58 @@ const getProfile = async (req, res) => {
             message:
                 "Something went wrong while getting profile.",
         });
+=======
+        user.username = cleanUsername;
+      }
+>>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
     }
+
+    //remaining plain text fields — free-form, no uniqueness needed
+    const textFields = {
+      phone,
+      organizationName,
+      about,
+      website,
+      address,
+      area,
+      city,
+      division,
+      facebook,
+      instagram,
+      establishedYear,
+    };
+
+    for (const [field, value] of Object.entries(textFields)) {
+      if (value !== undefined) {
+        user[field] = typeof value === "string" ? value.trim() || null : value;
+      }
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Profile updated successfully.",
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while updating your profile.",
+    });
+  }
 };
 
+//change the logged-in user's own password. Kept as its own endpoint
+//(rather than folded into updateProfile) since it has different
+//rules: it requires re-proving identity with the current password
+//before anything changes, which the plain text-field updates above
+//don't need.
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
 
+<<<<<<< HEAD
 // ==========================================
 // UPLOAD / UPDATE PROFILE PICTURE
 // ==========================================
@@ -487,4 +659,78 @@ module.exports = {
     getProfile,
     uploadProfilePicture,
     deleteProfilePicture,
+=======
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Current password and new password are required.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const isCurrentPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isCurrentPasswordCorrect) {
+      return res.status(401).json({
+        message: "Current password is incorrect.",
+      });
+    }
+
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+
+    if (isSameAsCurrent) {
+      return res.status(400).json({
+        message: "New password must be different from the current password.",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password updated successfully.",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while updating your password.",
+    });
+  }
+};
+
+//logout
+const logout = (req, res) => {
+  res.clearCookie("token", cookieOptions);
+
+  return res.status(200).json({
+    message: "Logout successful.",
+  });
+};
+
+module.exports = {
+  register,
+  login,
+  getProfile,
+  updateProfile,
+  changePassword,
+  logout,
+  serializeUser,
+>>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
 };
