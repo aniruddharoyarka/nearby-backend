@@ -9,8 +9,11 @@ const multer = require("multer");
 // ==========================================
 
 // Change this single number to adjust the max allowed cover
-// image size everywhere (events + offers).
-const MAX_IMAGE_SIZE_MB = 1;
+// image size everywhere (events + offers). Bumped from 1MB to 5MB —
+// event/offer banners are hero images and deserve better quality than
+// a 1MB cap allows. Keep this in sync with
+// nearby/src/services/uploadService.js's MAX_IMAGE_SIZE_MB.
+const MAX_IMAGE_SIZE_MB = 5;
 
 const dir = process.env.ENV === "production" ? "/tmp/uploads" : "uploads";
 

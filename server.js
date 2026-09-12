@@ -1,13 +1,16 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const fs = require("fs");
 require("dotenv").config();
 
 require("./config/cloudinary");
 
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const eventRoutes = require("./routes/eventRoutes");
 
 const app = express();
 
@@ -18,11 +21,11 @@ app.use(
     cors({
         origin: "http://localhost:5173",
         credentials: true,
-        credentials: true,
     })
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 // ==============================
 // TEMP UPLOADS DIRECTORY
@@ -53,7 +56,10 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/offers", require("./routes/offerRoutes"));
 
 //start server
 app.listen(PORT, () => {

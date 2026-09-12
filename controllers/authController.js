@@ -34,6 +34,7 @@ const serializeUser = (user) => ({
   facebook: user.facebook,
   instagram: user.instagram,
   establishedYear: user.establishedYear,
+  profilePicture: user.profilePicture,
   createdAt: user.createdAt,
 });
 
@@ -147,110 +148,11 @@ const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-<<<<<<< HEAD
-        // ==========================================
-        // Validate input
-        // ==========================================
-
-        if (!email || !password) {
-            return res.status(400).json({
-                message:
-                    "Email and password are required.",
-            });
-        }
-
-        // ==========================================
-        // Clean email
-        // ==========================================
-
-        const cleanEmail =
-            email.toLowerCase().trim();
-
-        // ==========================================
-        // Find user
-        // ==========================================
-
-        const user = await User.findOne({
-            email: cleanEmail,
-        });
-
-        if (!user) {
-            return res.status(401).json({
-                message:
-                    "Invalid email or password.",
-            });
-        }
-
-        // ==========================================
-        // Compare password
-        // ==========================================
-
-        const isPasswordCorrect =
-            await bcrypt.compare(
-                password,
-                user.password
-            );
-
-        if (!isPasswordCorrect) {
-            return res.status(401).json({
-                message:
-                    "Invalid email or password.",
-            });
-        }
-
-        // ==========================================
-        // Create JWT
-        // ==========================================
-
-        const token = jwt.sign(
-            {
-                userId: user._id,
-                role: user.role,
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: "7d",
-            }
-        );
-
-        // ==========================================
-        // Response
-        // ==========================================
-
-        return res.status(200).json({
-            message: "Login successful.",
-
-            token,
-
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                organizationName:
-                    user.organizationName,
-                phone: user.phone,
-                profilePicture: user.profilePicture,
-            },
-        });
-
-    } catch (error) {
-        console.error(
-            "Login error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Something went wrong while logging in.",
-        });
-=======
     //validate input
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password are required.",
       });
->>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
     }
 
     //clean email
@@ -381,10 +283,13 @@ const getProfile = async (req, res) => {
   }
 };
 
-//update the logged-in user's own profile (text fields only for now —
-//no image upload yet). Follows the same shape as the reference app's
-//findByIdAndUpdate pattern, but scoped to req.user.userId instead of a
-//URL :id, since this endpoint can only ever edit your own account.
+//update the logged-in user's own text profile fields (name, phone,
+//etc.) — profile picture upload is handled separately by
+//uploadProfilePicture/deleteProfilePicture below, since multipart
+//file uploads need different middleware than a plain JSON PUT.
+//Follows the same shape as the reference app's findByIdAndUpdate
+//pattern, but scoped to req.user.userId instead of a URL :id, since
+//this endpoint can only ever edit your own account.
 const updateProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -447,40 +352,8 @@ const updateProfile = async (req, res) => {
           });
         }
 
-<<<<<<< HEAD
-        // ==========================================
-        // Response
-        // ==========================================
-
-        return res.status(200).json({
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                organizationName:
-                    user.organizationName,
-                phone: user.phone,
-                profilePicture: user.profilePicture,
-                createdAt:
-                    user.createdAt,
-            },
-        });
-
-    } catch (error) {
-        console.error(
-            "Get profile error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Something went wrong while getting profile.",
-        });
-=======
         user.username = cleanUsername;
       }
->>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
     }
 
     //remaining plain text fields — free-form, no uniqueness needed
@@ -519,6 +392,114 @@ const updateProfile = async (req, res) => {
   }
 };
 
+//update the logged-in user's own profile picture. Uploads to
+//Cloudinary, saves the new {url, publicId} on the user, and cleans up
+//the previous Cloudinary image (if any) so old photos don't pile up.
+const uploadProfilePicture = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: "An image file is required.",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const previousPublicId = user.profilePicture?.publicId;
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "nearby/profile-pictures",
+    });
+
+    user.profilePicture = {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
+
+    await user.save();
+
+    //Clean up the old photo now that the new one is live. Not awaited
+    //on the response — a failure here shouldn't block the user from
+    //seeing their new picture, it just means an orphaned file sits in
+    //Cloudinary (logged, not silent).
+    if (previousPublicId) {
+      cloudinary.uploader
+        .destroy(previousPublicId)
+        .catch((error) =>
+          console.error(
+            "Failed to delete previous profile picture from Cloudinary:",
+            error
+          )
+        );
+    }
+
+    return res.status(200).json({
+      message: "Profile picture updated.",
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Upload profile picture error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while uploading your photo.",
+    });
+  } finally {
+    //Always clean up the temp file multer wrote to disk, whether the
+    //Cloudinary upload succeeded or not.
+    if (req.file) {
+      deleteFiles([req.file.path]);
+    }
+  }
+};
+
+//remove the logged-in user's profile picture entirely (back to the
+//default avatar-letter look the UI already falls back to).
+const deleteProfilePicture = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
+
+    const publicId = user.profilePicture?.publicId;
+
+    user.profilePicture = { url: null, publicId: null };
+
+    await user.save();
+
+    if (publicId) {
+      cloudinary.uploader
+        .destroy(publicId)
+        .catch((error) =>
+          console.error(
+            "Failed to delete profile picture from Cloudinary:",
+            error
+          )
+        );
+    }
+
+    return res.status(200).json({
+      message: "Profile picture removed.",
+      user: serializeUser(user),
+    });
+  } catch (error) {
+    console.error("Delete profile picture error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while removing your photo.",
+    });
+  }
+};
+
 //change the logged-in user's own password. Kept as its own endpoint
 //(rather than folded into updateProfile) since it has different
 //rules: it requires re-proving identity with the current password
@@ -528,138 +509,6 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-<<<<<<< HEAD
-// ==========================================
-// UPLOAD / UPDATE PROFILE PICTURE
-// ==========================================
-
-const uploadProfilePicture = async (req, res) => {
-    try {
-        // ==========================================
-        // Validate file presence
-        // ==========================================
-
-        if (!req.file) {
-            return res.status(400).json({
-                message: "Profile picture image is required.",
-            });
-        }
-
-        const user = await User.findById(req.user.userId);
-
-        if (!user) {
-            deleteFiles([req.file.path]);
-
-            return res.status(404).json({
-                message: "User not found.",
-            });
-        }
-
-        // ==========================================
-        // Remove old picture from Cloudinary, if any
-        // ==========================================
-
-        if (user.profilePicture?.publicId) {
-            await cloudinary.uploader.destroy(
-                user.profilePicture.publicId
-            );
-        }
-
-        // ==========================================
-        // Upload new picture
-        // ==========================================
-
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: "nearby/profile_pictures",
-        });
-
-        user.profilePicture = {
-            url: result.secure_url,
-            publicId: result.public_id,
-        };
-
-        await user.save();
-
-        return res.status(200).json({
-            message: "Profile picture updated.",
-            profilePicture: user.profilePicture,
-        });
-
-    } catch (error) {
-        console.error(
-            "Upload profile picture error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Something went wrong while uploading the profile picture.",
-        });
-    } finally {
-        if (req.file) {
-            deleteFiles([req.file.path]);
-        }
-    }
-};
-
-
-// ==========================================
-// DELETE PROFILE PICTURE
-// ==========================================
-
-const deleteProfilePicture = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.userId);
-
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found.",
-            });
-        }
-
-        if (!user.profilePicture?.publicId) {
-            return res.status(400).json({
-                message: "No profile picture to delete.",
-            });
-        }
-
-        await cloudinary.uploader.destroy(
-            user.profilePicture.publicId
-        );
-
-        user.profilePicture = { url: null, publicId: null };
-
-        await user.save();
-
-        return res.status(200).json({
-            message: "Profile picture removed.",
-        });
-
-    } catch (error) {
-        console.error(
-            "Delete profile picture error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Something went wrong while deleting the profile picture.",
-        });
-    }
-};
-
-
-// ==========================================
-// EXPORT
-// ==========================================
-
-module.exports = {
-    register,
-    login,
-    getProfile,
-    uploadProfilePicture,
-    deleteProfilePicture,
-=======
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         message: "Current password and new password are required.",
@@ -729,8 +578,9 @@ module.exports = {
   login,
   getProfile,
   updateProfile,
+  uploadProfilePicture,
+  deleteProfilePicture,
   changePassword,
   logout,
   serializeUser,
->>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
 };

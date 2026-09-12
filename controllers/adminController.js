@@ -6,6 +6,7 @@ const User = require("../models/User");
 // compute a real number from, and showing a hardcoded 0 for every
 // user would be misleading placeholder data.
 const serializeAdminUser = (user) => ({
+    profilePicture: { url: user.profilePicture?.url || null },
     id: user._id,
     name: user.name,
     email: user.email,
@@ -17,6 +18,7 @@ const serializeAdminUser = (user) => ({
 // Same idea for the Organizers table/modal — no events/offers counts
 // until there's a real Event/Offer collection to derive them from.
 const serializeAdminOrganizer = (organizer) => ({
+    profilePicture: { url: organizer.profilePicture?.url || null },
     id: organizer._id,
     name: organizer.organizationName || organizer.name,
     owner: organizer.name,

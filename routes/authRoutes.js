@@ -4,14 +4,11 @@ const {
     register,
     login,
     getProfile,
-<<<<<<< HEAD
+    updateProfile,
     uploadProfilePicture,
     deleteProfilePicture,
-=======
-    updateProfile,
     changePassword,
     logout,
->>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -32,7 +29,12 @@ router.get(
     getProfile
 );
 
-<<<<<<< HEAD
+router.put(
+    "/profile",
+    authMiddleware,
+    updateProfile
+);
+
 router.post(
     "/profile-picture",
     authMiddleware,
@@ -45,14 +47,6 @@ router.delete(
     "/profile-picture",
     authMiddleware,
     deleteProfilePicture
-);
-
-module.exports = router;
-=======
-router.put(
-    "/profile",
-    authMiddleware,
-    updateProfile
 );
 
 router.put(
@@ -68,4 +62,3 @@ router.post(
 );
 
 module.exports = router;
->>>>>>> 35b139298b5011ad9d9100f4aeaa4caa027d4d5e

@@ -7,20 +7,23 @@ const {
 } = require("../controllers/uploadController");
 
 const authMiddleware = require("../middleware/authMiddleware");
+const requireOrganizer = require("../middleware/requireOrganizer");
 const coverImageUpload = require("../middleware/coverImageUpload.middleware");
 const multerErrorHandling = require("../middleware/multerError.middleware");
 
 const router = express.Router();
 
 // ==========================================
-// All upload routes require a logged-in organizer.
-// (No separate role check yet — same pattern the rest
-// of the app currently uses via authMiddleware.)
+// Every upload route here requires a logged-in organizer —
+// event/offer cover images should only ever be uploaded by
+// the organizer creating that event/offer, not by regular
+// users or admins.
 // ==========================================
 
 router.post(
     "/event-image",
     authMiddleware,
+    requireOrganizer,
     coverImageUpload.single("image"),
     multerErrorHandling,
     uploadEventImage
@@ -29,6 +32,7 @@ router.post(
 router.post(
     "/offer-image",
     authMiddleware,
+    requireOrganizer,
     coverImageUpload.single("image"),
     multerErrorHandling,
     uploadOfferImage
@@ -37,6 +41,7 @@ router.post(
 router.delete(
     "/image",
     authMiddleware,
+    requireOrganizer,
     deleteCoverImage
 );
 
