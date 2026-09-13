@@ -13,9 +13,6 @@ const cookieOptions = {
   path: "/",
 };
 
-//single source of truth for the safe, client-facing shape of a user
-//document — used by register, login, getProfile and updateProfile so
-//they can never drift out of sync with each other.
 const serializeUser = (user) => ({
   id: user._id,
   name: user.name,
@@ -178,11 +175,6 @@ const login = async (req, res) => {
       });
     }
 
-    //Block suspended accounts from logging in at all. Suspending is
-    //meant to cut off access immediately — without this check, an
-    //admin toggling "Suspended" only changed what the admin panel
-    //displayed; the account could still authenticate normally and
-    //nothing was actually enforced.
     if (user.status === "Suspended") {
       return res.status(403).json({
         message:
@@ -190,19 +182,7 @@ const login = async (req, res) => {
       });
     }
 
-    //Enforce that the login page's role selection (the organizer
-    //toggle, or the dedicated admin login page) actually matches the
-    //account's real role BEFORE issuing any session cookie.
-    //Without this, a mismatched login would still succeed and set the
-    //cookie, letting the login surface be bypassed by navigating
-    //manually. This is a strict equality check across all three roles
-    //so a plain user/organizer account can never slip through on the
-    //admin login page just because it "isn't an organizer".
     if (role && user.role !== role) {
-      //Someone tried the hidden admin login with a non-admin
-      //account. Reply exactly like a wrong password would, so this
-      //endpoint can't be used to fingerprint who is (or isn't) an
-      //admin.
       if (role === "admin") {
         return res.status(401).json({
           message: "Invalid email or password.",
@@ -215,8 +195,6 @@ const login = async (req, res) => {
         });
       }
 
-      //role === "user" (the toggle's default) but the account is
-      //actually an organizer or admin.
       return res.status(403).json({
         message:
           user.role === "organizer"
@@ -283,13 +261,6 @@ const getProfile = async (req, res) => {
   }
 };
 
-//update the logged-in user's own text profile fields (name, phone,
-//etc.) — profile picture upload is handled separately by
-//uploadProfilePicture/deleteProfilePicture below, since multipart
-//file uploads need different middleware than a plain JSON PUT.
-//Follows the same shape as the reference app's findByIdAndUpdate
-//pattern, but scoped to req.user.userId instead of a URL :id, since
-//this endpoint can only ever edit your own account.
 const updateProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -329,13 +300,6 @@ const updateProfile = async (req, res) => {
       user.name = cleanName;
     }
 
-    //Email is deliberately NOT editable here — it's the account's
-    //permanent identifier from registration. Even if a client sends
-    //an `email` field, it's silently ignored rather than applied, so
-    //this can't be bypassed by hitting the API directly instead of
-    //going through the UI.
-
-    //username — optional, but must stay unique across accounts if set
     if (username !== undefined) {
       const cleanUsername = username.trim().toLowerCase();
 
@@ -392,9 +356,6 @@ const updateProfile = async (req, res) => {
   }
 };
 
-//update the logged-in user's own profile picture. Uploads to
-//Cloudinary, saves the new {url, publicId} on the user, and cleans up
-//the previous Cloudinary image (if any) so old photos don't pile up.
 const uploadProfilePicture = async (req, res) => {
   try {
     if (!req.file) {
@@ -424,10 +385,6 @@ const uploadProfilePicture = async (req, res) => {
 
     await user.save();
 
-    //Clean up the old photo now that the new one is live. Not awaited
-    //on the response — a failure here shouldn't block the user from
-    //seeing their new picture, it just means an orphaned file sits in
-    //Cloudinary (logged, not silent).
     if (previousPublicId) {
       cloudinary.uploader
         .destroy(previousPublicId)
@@ -450,16 +407,12 @@ const uploadProfilePicture = async (req, res) => {
       message: "Something went wrong while uploading your photo.",
     });
   } finally {
-    //Always clean up the temp file multer wrote to disk, whether the
-    //Cloudinary upload succeeded or not.
     if (req.file) {
       deleteFiles([req.file.path]);
     }
   }
 };
 
-//remove the logged-in user's profile picture entirely (back to the
-//default avatar-letter look the UI already falls back to).
 const deleteProfilePicture = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -500,11 +453,6 @@ const deleteProfilePicture = async (req, res) => {
   }
 };
 
-//change the logged-in user's own password. Kept as its own endpoint
-//(rather than folded into updateProfile) since it has different
-//rules: it requires re-proving identity with the current password
-//before anything changes, which the plain text-field updates above
-//don't need.
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

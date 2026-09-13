@@ -27,11 +27,6 @@ const authMiddleware = async (req, res, next) => {
             process.env.JWT_SECRET
         );
 
-        //Re-check the account is still active on every request, not just
-        //at login time. Without this, suspending someone who is already
-        //logged in would do nothing until their JWT naturally expires
-        //(up to 7 days later) — the cookie itself stays perfectly valid,
-        //it's just no longer supposed to be trusted.
         const user = await User.findById(decoded.userId).select("status");
 
         if (!user || user.status === "Suspended") {

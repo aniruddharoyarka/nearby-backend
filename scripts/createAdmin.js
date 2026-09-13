@@ -1,15 +1,3 @@
-// One-off CLI tool for creating admin accounts directly against the
-// database. This is intentionally NOT an HTTP endpoint — it only runs
-// if someone with shell + DB access executes it locally or on the
-// server. It always creates role: "admin" — there is no way to pass a
-// different role in, on purpose.
-//
-// Usage:
-//   node scripts/createAdmin.js --name "Jane Doe" --email jane@nearby.com --password "somethingStrong123"
-//
-// Or run it with no flags and it will prompt you interactively:
-//   node scripts/createAdmin.js
-
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const readline = require("readline");
@@ -17,7 +5,6 @@ require("dotenv").config();
 
 const User = require("../models/User");
 
-// ---- tiny arg parser (no extra dependency needed) ----
 function parseArgs() {
     const args = {};
     const argv = process.argv.slice(2);
@@ -34,7 +21,6 @@ function parseArgs() {
     return args;
 }
 
-// ---- interactive fallback for any missing flag ----
 function ask(question) {
     const rl = readline.createInterface({
         input: process.stdin,
@@ -58,8 +44,6 @@ async function main() {
         .trim();
     const password = args.password || (await ask("Admin password: "));
 
-    // Same validation rules as the public register endpoint, so we
-    // never end up with an admin account that couldn't have logged in.
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!name.trim()) {

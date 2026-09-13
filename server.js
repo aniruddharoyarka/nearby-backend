@@ -27,20 +27,11 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// ==============================
-// TEMP UPLOADS DIRECTORY
-// (used by multer before files are pushed to Cloudinary)
-// ==============================
-
 const uploadsDir = process.env.ENV === "production" ? "/tmp/uploads" : "uploads";
 
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
-
-// ==============================
-// MONGODB CONNECTION
-// ==============================
 
 mongoose
     .connect(process.env.MONGO_URL)

@@ -1,24 +1,11 @@
 const cloudinary = require("../config/cloudinary");
 const deleteFiles = require("../utils/deleteFiles");
 
-// ==========================================
-// EVENT / OFFER COVER IMAGE UPLOAD
-//
-// Folder layout in Cloudinary:
-//   nearby/
-//     events/   <- organizer event cover images
-//     offers/   <- organizer offer cover images
-// ==========================================
-
 const FOLDERS = {
     event: "nearby/events",
     offer: "nearby/offers",
 };
 
-// ==========================================
-// POST /api/upload/event-image
-// POST /api/upload/offer-image
-// ==========================================
 
 const uploadCoverImage = (type) => async (req, res) => {
     try {
@@ -57,16 +44,6 @@ const uploadCoverImage = (type) => async (req, res) => {
 
 const uploadEventImage = uploadCoverImage("event");
 const uploadOfferImage = uploadCoverImage("offer");
-
-
-// ==========================================
-// DELETE /api/upload/image
-// Body: { publicId }
-//
-// Used when an organizer replaces or removes a cover image
-// before saving the event/offer, so the old Cloudinary file
-// doesn't just sit around unused.
-// ==========================================
 
 const deleteCoverImage = async (req, res) => {
     try {

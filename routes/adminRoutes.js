@@ -14,8 +14,6 @@ const requireAdmin = require("../middleware/requireAdmin");
 const router = express.Router();
 const { getEvents, updateEventStatus } = require("../controllers/eventController");
 
-//every route here is admin-only: verify the JWT first, then require
-//the "admin" role before any handler runs
 router.use(authMiddleware, requireAdmin);
 const offers = require("../controllers/offerController");
 router.get("/offers", offers.list("admin"));

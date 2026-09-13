@@ -1,10 +1,5 @@
 const User = require("../models/User");
 
-// Only the fields the admin panel currently displays for a regular
-// user (UsersTable / UserDetailsModal). There's deliberately no
-// "events" count here — there's no Event/attendance model yet to
-// compute a real number from, and showing a hardcoded 0 for every
-// user would be misleading placeholder data.
 const serializeAdminUser = (user) => ({
     profilePicture: { url: user.profilePicture?.url || null },
     id: user._id,
@@ -15,8 +10,6 @@ const serializeAdminUser = (user) => ({
     status: user.status,
 });
 
-// Same idea for the Organizers table/modal — no events/offers counts
-// until there's a real Event/Offer collection to derive them from.
 const serializeAdminOrganizer = (organizer) => ({
     profilePicture: { url: organizer.profilePicture?.url || null },
     id: organizer._id,
@@ -28,7 +21,6 @@ const serializeAdminOrganizer = (organizer) => ({
     status: organizer.status,
 });
 
-//GET /api/admin/users — real registered users, most recent first
 const getUsers = async (req, res) => {
     try {
         const users = await User.find({ role: "user" })
@@ -47,7 +39,6 @@ const getUsers = async (req, res) => {
     }
 };
 
-//GET /api/admin/organizers — real registered organizers, most recent first
 const getOrganizers = async (req, res) => {
     try {
         const organizers = await User.find({ role: "organizer" })
@@ -66,7 +57,6 @@ const getOrganizers = async (req, res) => {
     }
 };
 
-//GET /api/admin/stats — real counts for the dashboard's stat cards
 const getStats = async (req, res) => {
     try {
         const [totalUsers, totalOrganizers] = await Promise.all([
@@ -87,7 +77,6 @@ const getStats = async (req, res) => {
     }
 };
 
-//PATCH /api/admin/users/:id/status — toggle Active / Suspended
 const updateUserStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -99,8 +88,6 @@ const updateUserStatus = async (req, res) => {
             });
         }
 
-        //scoped to role: "user" so this endpoint can never be repurposed
-        //to touch an organizer or admin account
         const user = await User.findOneAndUpdate(
             { _id: id, role: "user" },
             { status },
@@ -126,7 +113,6 @@ const updateUserStatus = async (req, res) => {
     }
 };
 
-//PATCH /api/admin/organizers/:id/status — Approve / Suspend / mark Pending
 const updateOrganizerStatus = async (req, res) => {
     try {
         const { id } = req.params;

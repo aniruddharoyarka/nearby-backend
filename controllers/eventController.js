@@ -57,7 +57,6 @@ const updateEventStatus = async (req, res) => {
     }
 };
 
-//safe, client-facing shape of an event document
 const serializeEvent = (event) => ({
     id: event._id,
     title: event.title,
@@ -83,10 +82,6 @@ const serializeEvent = (event) => ({
     createdAt: event.createdAt,
 });
 
-//POST /api/events \u2014 organizer creates a new event. Starts as
-//"Pending" and needs admin approval before it's meant to go public
-//(matches the status values the admin panel's Events page already
-//uses).
 const createEvent = async (req, res) => {
     try {
         const {
@@ -142,8 +137,6 @@ const createEvent = async (req, res) => {
             });
         }
 
-        //tickets \u2014 at least one is required, and each needs a name
-        //and a valid non-negative price
         if (!Array.isArray(tickets) || tickets.length === 0) {
             return res.status(400).json({
                 message: "At least one ticket type is required.",
@@ -200,8 +193,7 @@ const createEvent = async (req, res) => {
                 url: bannerImage?.url || null,
                 publicId: bannerImage?.publicId || null,
             },
-            //derived from the authenticated session, never from the
-            //request body
+
             organizer: req.user.userId,
         });
 
@@ -218,10 +210,6 @@ const createEvent = async (req, res) => {
     }
 };
 
-//GET /api/events/mine \u2014 the logged-in organizer's own events, most
-//recent first. Lets the frontend confirm a created event actually
-//persisted, even before the wider event-listing pages are wired to
-//real data.
 const getMyEvents = async (req, res) => {
     try {
         const events = await Event.find({

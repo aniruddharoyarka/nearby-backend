@@ -27,11 +27,6 @@ const userSchema = new mongoose.Schema(
             default: "user",
         },
 
-        //admin moderation status. Users are Active by default; organizers
-        //are Approved by default since registering already grants full
-        //access today (there's no approval gate at signup yet) — this
-        //field just gives the admin panel something real to read and
-        //toggle instead of the dummy data it had before.
         status: {
             type: String,
             enum: ["Active", "Suspended", "Approved", "Pending"],

@@ -13,13 +13,6 @@ const multerErrorHandling = require("../middleware/multerError.middleware");
 
 const router = express.Router();
 
-// ==========================================
-// Every upload route here requires a logged-in organizer —
-// event/offer cover images should only ever be uploaded by
-// the organizer creating that event/offer, not by regular
-// users or admins.
-// ==========================================
-
 router.post(
     "/event-image",
     authMiddleware,

@@ -1,12 +1,5 @@
 const multer = require("multer");
 
-// ==========================================
-// TEMP UPLOAD DIRECTORY
-//
-// Files land here briefly before being pushed
-// to Cloudinary, then deleted (see utils/deleteFiles.js)
-// ==========================================
-
 const dir = process.env.ENV === "production" ? "/tmp/uploads" : "uploads";
 
 const storage = multer.diskStorage({
@@ -34,15 +27,11 @@ const storage = multer.diskStorage({
             filenameWithoutExtension +
                 "-" +
                 Date.now() +
-                Math.ceil(Math.random() * 1e5) + // avoid rare name conflicts
-                fileExtension
+                Math.ceil(Math.random() * 1e5) + fileExtension
         );
     },
 });
 
-// ==========================================
-// FILE FILTER — images only
-// ==========================================
 
 const fileFilter = (req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
