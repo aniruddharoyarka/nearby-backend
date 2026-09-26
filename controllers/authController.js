@@ -4,7 +4,7 @@ const User = require("../models/User");
 const cloudinary = require("../config/cloudinary");
 const deleteFiles = require("../utils/deleteFiles");
 
-const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days, matches JWT expiresIn
+const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; 
 
 const cookieOptions = {
   httpOnly: true,

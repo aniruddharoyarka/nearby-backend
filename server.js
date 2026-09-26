@@ -19,12 +19,13 @@ const PORT = process.env.PORT || 5000;
 
 app.use(
     cors({
-        origin: "http://localhost:5173",
+        origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
         credentials: true,
     })
 );
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 const uploadsDir = process.env.ENV === "production" ? "/tmp/uploads" : "uploads";
@@ -51,6 +52,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/offers", require("./routes/offerRoutes"));
+
+app.use("/api/payments", require("./routes/paymentRoutes"));
 
 //start server
 app.listen(PORT, () => {
