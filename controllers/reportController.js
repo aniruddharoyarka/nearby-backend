@@ -5,6 +5,42 @@ const Offer = require("../models/Offer");
 
 const TARGET_MODELS = { Event, Offer };
 
+const STATUSES = ["Pending", "Under Review", "Resolved", "Dismissed"];
+
+const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+
+// Shapes a Report doc (with targetId + reporter populated) into what the
+// admin Reports UI already expects: id, type, target, organizer,
+// reportedBy, reason, description, date, status.
+const serialize = (report) => ({
+    id: report._id,
+    type: report.targetType,
+    target: report.targetId?.title || "Listing no longer available",
+    organizer:
+        report.targetId?.organizer?.organizationName ||
+        report.targetId?.organizer?.name ||
+        "Unknown organizer",
+    reportedBy: report.reporter?.name || "Unknown user",
+    reason: report.reason,
+    description: report.details || "No additional details provided.",
+    date: formatDate(report.createdAt),
+    status: report.status,
+});
+
+const populate = (query) =>
+    query
+        .populate({
+            path: "targetId",
+            select: "title organizer",
+            populate: { path: "organizer", select: "name organizationName" },
+        })
+        .populate("reporter", "name");
+
 // Anyone signed in (user, organizer or admin) can report an event or offer.
 const create = async (req, res) => {
     const targetType =
@@ -76,7 +112,58 @@ const reasons = (req, res) => {
     return res.json({ reasons: Report.REASONS });
 };
 
+// Admin: every report, newest first.
+const list = async (req, res) => {
+    try {
+        const reports = await populate(
+            Report.find({}).sort({ createdAt: -1 }),
+        );
+
+        return res.json({ reports: reports.map(serialize) });
+    } catch (error) {
+        console.error("List reports error:", error);
+
+        return res.status(500).json({ message: "Failed to load reports." });
+    }
+};
+
+// Admin: move a report to Under Review / Resolved / Dismissed (or back to
+// Pending). This only ever touches the report itself — see note above.
+const updateStatus = async (req, res) => {
+    if (!STATUSES.includes(req.body.status)) {
+        return res.status(400).json({ message: "Invalid report status." });
+    }
+
+    if (!mongoose.isObjectIdOrHexString(req.params.id)) {
+        return res.status(404).json({ message: "Report not found." });
+    }
+
+    try {
+        const report = await populate(
+            Report.findByIdAndUpdate(
+                req.params.id,
+                { status: req.body.status },
+                { new: true, runValidators: true },
+            ),
+        );
+
+        if (!report) {
+            return res.status(404).json({ message: "Report not found." });
+        }
+
+        return res.json({ report: serialize(report) });
+    } catch (error) {
+        console.error("Update report status error:", error);
+
+        return res
+            .status(500)
+            .json({ message: "Failed to update report status." });
+    }
+};
+
 module.exports = {
     create,
     reasons,
+    list,
+    updateStatus,
 };
