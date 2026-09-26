@@ -16,8 +16,11 @@ const { getEvents, updateEventStatus } = require("../controllers/eventController
 
 router.use(authMiddleware, requireAdmin);
 const offers = require("../controllers/offerController");
+const reports = require("../controllers/reportController");
 router.get("/offers", offers.list("admin"));
 router.patch("/offers/:id/status", offers.moderate);
+router.get("/reports", reports.list);
+router.patch("/reports/:id/status", reports.updateStatus);
 router.get("/events", getEvents(true));
 router.patch("/events/:id/status", updateEventStatus);
 

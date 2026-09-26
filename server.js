@@ -57,6 +57,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/offers", require("./routes/offerRoutes"));
 
 app.use("/api/payments", require("./routes/paymentRoutes"));
+app.use("/api/reports", require("./routes/reportRoutes"));
 
 //start server
 app.listen(PORT, () => {
