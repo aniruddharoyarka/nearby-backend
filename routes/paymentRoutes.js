@@ -152,10 +152,10 @@ router.post("/checkout", auth, async (req, res) => {
           .json({ message: "Enter a valid phone number and billing address." });
       }
       credentials();
-      if (!/^https:\/\//.test(process.env.API_BASE_URL || ""))
-        throw new Error(
-          "Configure a public HTTPS API_BASE_URL for payment callbacks.",
-        );
+      const callbackBase = new URL(process.env.API_BASE_URL || "");
+      const local = ["localhost", "127.0.0.1", "[::1]"].includes(callbackBase.hostname);
+      if (callbackBase.protocol !== "https:" && !(local && callbackBase.protocol === "http:"))
+        throw new Error("Use HTTPS or a localhost callback URL.");
     }
     const transactionId = new mongoose.Types.ObjectId().toString();
     const token = randomBytes(32).toString("hex");
@@ -185,7 +185,7 @@ router.post("/checkout", auth, async (req, res) => {
         success_url: callback("success"),
         fail_url: callback("failed"),
         cancel_url: callback("cancelled"),
-        ipn_url: `${base}/payments/ipn`,
+        ...(!["localhost", "127.0.0.1", "[::1]"].includes(new URL(base).hostname) ? { ipn_url: `${base}/payments/ipn` } : {}),
         shipping_method: "NO",
         num_of_item: cart.quantity,
         product_name: event.title.slice(0, 200),
@@ -287,6 +287,22 @@ router.get("/orders/:transactionId", auth, async (req, res) => {
     return res
       .status(404)
       .json({ message: "Order not found for this account." });
+  // Local demos cannot receive server-to-server IPNs. Reconcile on owner status requests.
+  if (order.status !== "paid" && order.total > 0) {
+    try {
+      const query = await gateway("/validator/api/merchantTransIDvalidationAPI.php", {
+        tran_id: order.transactionId, format: "json",
+      });
+      const transactions = Array.isArray(query.element) ? query.element : [];
+      const candidate = transactions.find(item => item.tran_id === order.transactionId && ["VALID", "VALIDATED"].includes(item.status));
+      if (candidate && await validate(order, candidate.val_id)) {
+        const confirmed = await Order.findOne({ transactionId: order.transactionId, user: req.user.userId });
+        return res.json({ order: receipt(confirmed) });
+      }
+    } catch {
+      return res.status(503).json({ message: "Could not verify payment with SSLCommerz. Refresh status before paying again." });
+    }
+  }
   res.json({ order: receipt(order) });
 });
 module.exports = router;

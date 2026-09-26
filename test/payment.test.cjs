@@ -44,7 +44,7 @@ function harness() {
     async init(data) { payload = new URLSearchParams(data); return gatewayResult; }
   }, express: { Router: () => router }, mongoose: { isValidObjectId: () => true, Types: { ObjectId: class { toString() { return 'transaction1'; } } } }, crypto: require('crypto'), '../middleware/authMiddleware': () => {}, '../models/Event': { findOne: async () => event }, '../models/User': { findById: async () => ({ _id: 'buyer', name: 'Buyer', email: 'buyer@example.com' }) }, '../models/Order': Order, '../utils/paymentRules.cjs': rules };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, staged ? 'paymentRoutes.js' : '../routes/paymentRoutes.js'), 'utf8'), {
-    require: name => modules[name], module: { exports: {} }, process: { env: { SSL_STORE_ID: 'test', SSL_STORE_PASSWORD: 'test', API_BASE_URL: 'https://example.com/api' } },
+    require: name => modules[name], module: { exports: {} }, process: { env: { SSL_STORE_ID: 'test', SSL_STORE_PASSWORD: 'test', API_BASE_URL: 'http://localhost:5000/api' } },
     URL, URLSearchParams, AbortSignal, Buffer, setTimeout, clearTimeout, fetch: async (url, options) => { payload = options.body; return { ok: true, json: async () => gatewayResult }; },
   });
   const res = { code: 200, status(n) { this.code=n; return this; }, json(data) { this.data=data; return this; }, sendStatus(n) { this.code=n; return this; }, redirect(n,url) { this.code=n; this.url=url; } };
@@ -91,4 +91,17 @@ test('gateway initialization failure does not confirm purchase', async () => {
   const h=harness(); h.setResult({ status:'FAILED' });
   await h.routes['POST /checkout']({ user: { role:'user',userId:'buyer' }, body: { eventId:'event1',items:[{ticketId:'vip',quantity:1}],phone:'01711111111',address:'Dhaka' } },h.res);
   assert.equal(h.res.code,503); assert.equal(h.order.status,'failed');
+});
+
+test('local checkout sends localhost callbacks without an IPN URL', async () => {
+  const h=harness(); h.setResult({status:'SUCCESS',GatewayPageURL:'https://sandbox.sslcommerz.com/pay'});
+  await h.routes['POST /checkout']({user:{role:'user',userId:'buyer'},body:{eventId:'event1',items:[{ticketId:'vip',quantity:1}],phone:'01711111111',address:'Dhaka'}},h.res);
+  assert.ok(h.payload().get('success_url').startsWith('http://localhost:5000/api/payments/callback/success/'));
+  assert.equal(h.payload().has('ipn_url'),false);
+});
+test('owner status query reconciles payment missed by local callback', async () => {
+  const h=harness();
+  h.setResult({...valid,element:[{...valid,val_id:'validation1'}]});
+  await h.routes['GET /orders/:transactionId']({params:{transactionId:'transaction1'},user:{userId:'buyer'}},h.res);
+  assert.equal(h.order.status,'paid'); assert.equal(h.res.data.order.status,'paid');
 });

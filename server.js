@@ -24,6 +24,9 @@ app.use(
     })
 );
 
+if (process.env.CARBON_TRACKING === "true") {
+    app.use(require("./middleware/carbonTracker").createCarbonTracker());
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
