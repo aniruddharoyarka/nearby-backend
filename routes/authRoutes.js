@@ -17,12 +17,10 @@ const multerErrorHandling = require("../middleware/multerError.middleware");
 
 const router = express.Router();
 
-//public routes
 router.post("/register", register);
 
 router.post("/login", login);
 
-//protected routes
 router.get(
     "/profile",
     authMiddleware,

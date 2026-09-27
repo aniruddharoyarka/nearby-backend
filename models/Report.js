@@ -55,7 +55,6 @@ const reportSchema = new mongoose.Schema(
 );
 
 // A user can only report the same event/offer once — stops repeat spam
-// reports while still letting different users flag the same listing.
 reportSchema.index(
   { reporter: 1, targetType: 1, targetId: 1 },
   { unique: true },

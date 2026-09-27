@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const staged = fs.existsSync(path.join(__dirname, 'paymentRules.cjs'));
-const rules = require(staged ? './paymentRules.cjs' : '../utils/paymentRules.cjs');
+const staged = fs.existsSync(path.join(__dirname, 'paymentRules.js'));
+const rules = require(staged ? './paymentRules.js' : '../utils/paymentRules.js');
 const event = { _id: 'event1', title: 'Concert', bannerImage: { url: 'banner' }, tickets: [{ _id: 'vip', name: 'VIP', price: 100.25 }, { _id: 'free', name: 'Free', price: 0 }] };
 const valid = { status: 'VALID', tran_id: 'transaction1', amount: '200.50', currency: 'BDT', risk_level: '0' };
 test('cart uses database prices, supports mixed tickets and exact total', () => {
@@ -42,7 +42,7 @@ function harness() {
   const modules = { 'sslcommerz-lts': class {
     constructor(id, password, live) { assert.equal(id, 'test'); assert.equal(password, 'test'); assert.equal(live, false); }
     async init(data) { payload = new URLSearchParams(data); return gatewayResult; }
-  }, express: { Router: () => router }, mongoose: { isValidObjectId: () => true, Types: { ObjectId: class { toString() { return 'transaction1'; } } } }, crypto: require('crypto'), '../middleware/authMiddleware': () => {}, '../models/Event': { findOne: async () => event }, '../models/User': { findById: async () => ({ _id: 'buyer', name: 'Buyer', email: 'buyer@example.com' }) }, '../models/Order': Order, '../utils/paymentRules.cjs': rules };
+  }, express: { Router: () => router }, mongoose: { isValidObjectId: () => true, Types: { ObjectId: class { toString() { return 'transaction1'; } } } }, crypto: require('crypto'), '../middleware/authMiddleware': () => {}, '../models/Event': { findOne: async () => event }, '../models/User': { findById: async () => ({ _id: 'buyer', name: 'Buyer', email: 'buyer@example.com' }) }, '../models/Order': Order, '../utils/paymentRules.js': rules };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, staged ? 'paymentRoutes.js' : '../routes/paymentRoutes.js'), 'utf8'), {
     require: name => modules[name], module: { exports: {} }, process: { env: { SSL_STORE_ID: 'test', SSL_STORE_PASSWORD: 'test', API_BASE_URL: 'http://localhost:5000/api' } },
     URL, URLSearchParams, AbortSignal, Buffer, setTimeout, clearTimeout, fetch: async (url, options) => { payload = options.body; return { ok: true, json: async () => gatewayResult }; },

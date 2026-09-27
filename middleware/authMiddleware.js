@@ -12,7 +12,6 @@ const clearAuthCookie = (res) => {
 
 const authMiddleware = async (req, res, next) => {
     try {
-        //read jwt from httpOnly cookie
         const token = req.cookies?.token;
 
         if (!token) {
@@ -21,7 +20,6 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        //verify jwt
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET

@@ -14,9 +14,6 @@ const formatDate = (date) =>
         year: "numeric",
     });
 
-// Shapes a Report doc (with targetId + reporter populated) into what the
-// admin Reports UI already expects: id, type, target, organizer,
-// reportedBy, reason, description, date, status.
 const serialize = (report) => ({
     id: report._id,
     type: report.targetType,
@@ -41,7 +38,6 @@ const populate = (query) =>
         })
         .populate("reporter", "name");
 
-// Anyone signed in (user, organizer or admin) can report an event or offer.
 const create = async (req, res) => {
     const targetType =
         req.body.targetType === "Event" || req.body.targetType === "Offer"
@@ -127,8 +123,6 @@ const list = async (req, res) => {
     }
 };
 
-// Admin: move a report to Under Review / Resolved / Dismissed (or back to
-// Pending). This only ever touches the report itself — see note above.
 const updateStatus = async (req, res) => {
     if (!STATUSES.includes(req.body.status)) {
         return res.status(400).json({ message: "Invalid report status." });

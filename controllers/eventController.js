@@ -106,7 +106,6 @@ const createEvent = async (req, res) => {
         let address;
         try { address = cleanAddress(req.body.address); } catch (error) { return res.status(400).json({ message: error.message }); }
 
-        //required fields
         if (!title?.trim()) {
             return res.status(400).json({
                 message: "Event title is required.",

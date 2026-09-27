@@ -35,19 +35,16 @@ const serializeUser = (user) => ({
   createdAt: user.createdAt,
 });
 
-//register organizer
 const register = async (req, res) => {
   try {
     const { name, email, password, role, organizationName, phone } = req.body;
 
-    //validate fields
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Name, email and password are required.",
       });
     }
 
-    //clean input areas
     const cleanName = name.trim();
     const cleanEmail = email.toLowerCase().trim();
 
@@ -57,7 +54,6 @@ const register = async (req, res) => {
       });
     }
 
-    //validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(cleanEmail)) {
@@ -66,14 +62,12 @@ const register = async (req, res) => {
       });
     }
 
-    //validate password
     if (password.length < 6) {
       return res.status(400).json({
         message: "Password must be at least 6 characters long.",
       });
     }
 
-    //check existing email
     const existingUser = await User.findOne({
       email: cleanEmail,
     });
@@ -84,10 +78,8 @@ const register = async (req, res) => {
       });
     }
 
-    //determine user role
     const userRole = role === "organizer" ? "organizer" : "user";
 
-    //organizer validation
     let cleanOrganizationName = null;
     let cleanPhone = null;
 
@@ -109,10 +101,8 @@ const register = async (req, res) => {
       }
     }
 
-    //hashing password using bycrypt
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    //create user
     const user = await User.create({
       name: cleanName,
       email: cleanEmail,
@@ -125,7 +115,6 @@ const register = async (req, res) => {
       phone: userRole === "organizer" ? cleanPhone : null,
     });
 
-    //response
     return res.status(201).json({
       message: "Registration successful.",
 
@@ -140,22 +129,18 @@ const register = async (req, res) => {
   }
 };
 
-//login
 const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    //validate input
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password are required.",
       });
     }
 
-    //clean email
     const cleanEmail = email.toLowerCase().trim();
 
-    //find user
     const user = await User.findOne({
       email: cleanEmail,
     });
@@ -166,7 +151,6 @@ const login = async (req, res) => {
       });
     }
 
-    //compare password
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -203,7 +187,6 @@ const login = async (req, res) => {
       });
     }
 
-    //create jwt
     const token = jwt.sign(
       {
         userId: user._id,
@@ -221,7 +204,6 @@ const login = async (req, res) => {
       maxAge: TOKEN_MAX_AGE,
     });
 
-    //response
     return res.status(200).json({
       message: "Login successful.",
 
@@ -238,17 +220,14 @@ const login = async (req, res) => {
 
 const getProfile = async (req, res) => {
   try {
-    //find user jwt using userid
     const user = await User.findById(req.user.userId).select("-password");
 
-    //user not found
     if (!user) {
       return res.status(404).json({
         message: "User not found.",
       });
     }
 
-    //response
     return res.status(200).json({
       user: serializeUser(user),
     });
@@ -287,7 +266,6 @@ const updateProfile = async (req, res) => {
       establishedYear,
     } = req.body;
 
-    //name
     if (name !== undefined) {
       const cleanName = name.trim();
 
