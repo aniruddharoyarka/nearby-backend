@@ -102,7 +102,7 @@ async function validate(order, valId) {
     v: "1",
   });
   if (!verifiedPayment(order, result)) return false;
-  // Atomic update makes repeated browser callbacks and IPNs harmless.
+
   await Order.updateOne(
     { _id: order._id, status: { $ne: "paid" } },
     {
